@@ -1,0 +1,146 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum FoodType {
+  dessert
+  drink
+}
+
+enum OrderStatus {
+  unstarted
+  processing
+  failed
+  successful
+  refunded
+  cancelled
+}
+
+enum PaymentMethod {
+  cash
+  momo
+  card
+}
+
+enum TxnStatus {
+  pending
+  successful
+  failed
+}
+
+model User {
+  id              String     @id @default(uuid())
+  email           String     @unique
+  firstName       String     @default("")
+  lastName        String     @default("")
+  emailVerifiedAt DateTime?
+  deactivatedAt   DateTime?
+  lastLogin       DateTime?
+  lastActive      DateTime?
+  cartItems       CartItem[]
+  orders          Order[]
+  passwords       Password[]
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+}
+
+model Password {
+  id        Int      @id @default(autoincrement())
+  salt      String
+  hash      Bytes
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+model Email {
+  id        Int      @id @default(autoincrement())
+  email     String
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+model Food {
+  id        String        @id @default(uuid())
+  name      String
+  type      FoodType
+  variants  FoodVariant[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+model FoodVariant {
+  id         String      @id @default(uuid())
+  name       String
+  food       Food        @relation(fields: [foodId], references: [id], onDelete: Cascade)
+  foodId     String
+  txns       FoodTxn[]
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+}
+
+model FoodTxn {
+  id            String      @id @default(uuid())
+  price         Int
+  currency      String      @default("GHS")
+  status        TxnStatus   @default(pending)
+  foodVariant   FoodVariant @relation(fields: [foodVariantId], references: [id], onDelete: Cascade)
+  foodVariantId String
+  order         Order?      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId       String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model CartItem {
+  id            Int         @id @default(autoincrement())
+  quantity      Int         @default(0)
+  totalCost     Int         @default(0)
+  foodVariant   FoodVariant @relation(fields: [foodVariantId], references: [id], onDelete: Cascade)
+  foodVariantId String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        String
+
+  @@unique([foodVariantId, userId])
+}
+
+model OrderItem {
+  id            Int         @id @default(autoincrement())
+  quantity      Int         @default(0)
+  totalCost     Int         @default(0)
+  foodVariant   FoodVariant @relation(fields: [foodVariantId], references: [id], onDelete: Cascade)
+  foodVariantId String
+  order         Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId       String
+
+  @@unique([foodVariantId, orderId])
+}
+
+model Order {
+  id            String        @id @default(uuid())
+  totalCost     Int           @default(0)
+  status        OrderStatus   @default(unstarted)
+  phoneNumber   String        @default("")
+  paymentMethod PaymentMethod @default(cash)
+  orderItems    OrderItem[]
+  txns          FoodTxn[]
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        String
+  createdAt     DateTime      @default(now())
+  completedAt   DateTime?
+}
